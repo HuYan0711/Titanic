@@ -43,8 +43,8 @@ model.load_state_dict(torch.load('./Titanic_data/model_weights.pth'))
 
 # Evaluation mode
 model.eval()
-
-passenger_ids = data_test_xlsx['PassengerId']
+df = pd.read_excel('./Titanic_data/test_filled.xlsx')
+passenger_ids = df['PassengerId']
 all_predictions = []  # For save prediction results
 all_passenger_ids = []  # For save PassengerId
 index = 0

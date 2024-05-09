@@ -28,14 +28,15 @@ def features2tensor(file_path: str, column_list: list):
     return features_tensor
 
 
+
+fillna_by_median('./Titanic_data/train.csv', './Titanic_data/train_filled.xlsx', 'Age')
+fillna_by_median('./Titanic_data/test.csv', './Titanic_data/test_filled.xlsx', 'Age')
+
 cabin_to_letter('./Titanic_data/train_filled.xlsx')
-cabin_to_letter('./Titanic_data/test.xlsx')
+cabin_to_letter('./Titanic_data/test_filled.xlsx')
 
-fillna_by_median('./Titanic_data/train_filled.xlsx', './Titanic_data/test_filled.xlsx', 'Age')
-fillna_by_median('./Titanic_data/test.xlsx', './Titanic_data/test_filled.xlsx', 'Age')
-
-feature_encoding('./Titanic_data/train_filled.xlsx', ['Sex', 'Embarked', '', 'Cabin_Letter'])
-feature_encoding('./Titanic_data/test.xlsx', ['Sex', 'Embarked', '', 'Cabin_Letter'])
+feature_encoding('./Titanic_data/train_filled.xlsx', ['Sex', 'Embarked', 'Cabin_Letter'])
+feature_encoding('./Titanic_data/test_filled.xlsx', ['Sex', 'Embarked', 'Cabin_Letter'])
 
 df = pd.read_excel('./Titanic_data/train_filled.xlsx')
 
@@ -45,7 +46,7 @@ train_labels = torch.tensor(numpy_labels, dtype=torch.float32)
 
 train_features = features2tensor('./Titanic_data/train_filled.xlsx',
                                  ['Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked', 'Cabin_Letter'])
-test_features = features2tensor('./Titanic_data/test.xlsx',
+test_features = features2tensor('./Titanic_data/test_filled.xlsx',
                                 ['Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked', 'Cabin_Letter'])
 
 X_train, X_val, y_train, y_val = train_test_split(train_features, train_labels, test_size=0.2, random_state=42)
@@ -60,6 +61,5 @@ test_dataset = TensorDataset(test_features)
 # While shuffle=False,datas will be take as the original order,otherwise,datas will be shuffled randomly.
 # DataLoader is a 2 dimension vector,like:[batch_size,num_features]
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=False)
-
 val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
 test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)

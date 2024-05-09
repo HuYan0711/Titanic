@@ -1,7 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 from pandasql import sqldf
-from data_preprocess import feature_encoding
 
 plt.rcParams['font.sans-serif'] = ['SimHei']  # Set font
 plt.rcParams['axes.unicode_minus'] = False  # Solve problem that '-' showed as squre
@@ -11,10 +10,6 @@ plt.rcParams['axes.unicode_minus'] = False  # Solve problem that '-' showed as s
 2.Process features which are containing null values or not "int" type 
 '''
 
-# data_train = pd.read_csv('./Titanic_data/train.csv')
-# data_test = pd.read_csv('./Titanic_data/test.csv')
-data_train_xlsx = pd.read_excel('./Titanic_data/train_filled.xlsx')
-data_test_xlsx = pd.read_excel('./Titanic_data/test.xlsx')
 
 
 def plot_bar(data, fig_name):
@@ -58,9 +53,9 @@ def cabin_survive_statistics():
 # cabin_nosurvive={'C': 24, 'E': 8, 'G': 2, 'D': 8, 'A': 8, 'B': 12, 'F': 5, 'T': 1}
 # data={'C': [35,24], 'G': [2,2], 'D': [25,8], 'A': [7,8], 'B': [35,12], 'F': [8,5], 'E': [24,8], 'T': [0,1]}
 
-def fillna_by_median(xlsx_path, column_name: str):
+def fillna_by_median(csv_path, xlsx_path, column_name: str):
     # Fill null value with median value of data, like 'age'
-    df = pd.read_excel(xlsx_path)
+    df = pd.read_csv(csv_path)
     median_number = df[column_name].median()
     df[column_name] = df[column_name].fillna(median_number)
     df.to_excel(xlsx_path, index=False)
@@ -75,15 +70,13 @@ def extract_cabin_first_letter(cabin_value):
 
 def add_cabin_letter(df):
     df['Cabin_Letter'] = df['Cabin'].apply(extract_cabin_first_letter)
-
     return df
 
 
 def cabin_to_letter(xlsx_path):
     df = pd.read_excel(xlsx_path)
     # Add 'Cabin_Letter' column
-    processed_data = add_cabin_letter(df['Cabin'])
-
+    processed_data = add_cabin_letter(df)
     processed_data.to_excel(xlsx_path, index=False)
 
 
