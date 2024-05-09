@@ -20,52 +20,55 @@ class BinaryClassifier(nn.Module):
         out = self.sigmoid(out)
         return out.squeeze()
 
+def main():
 
-# initialize model and optimizer
-model = BinaryClassifier()
-criterion = nn.BCELoss()  # 二分类交叉熵损失函数
-optimizer = optim.Adam(model.parameters(), lr=0.001)  # Adam优化器
+    model = BinaryClassifier()
+    criterion = nn.BCELoss()
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-# Train model
+    # Train model
 
-for epoch in range(100):
-    for inputs, labels in train_loader:
-        outputs = model(inputs)
-        loss = criterion(outputs, labels.float())  # labels需要是float类型以匹配BCELoss的期望输入
+    for epoch in range(100):
+        for inputs, labels in train_loader:
+            outputs = model(inputs)
+            loss = criterion(outputs, labels.float())
 
-        # 反向传播和优化
-        optimizer.zero_grad()  # 清空之前的梯度
-        loss.backward()  # 反向传播计算梯度
-        optimizer.step()  # 使用优化器更新权重
-torch.save(model.state_dict(), './Titanic_data/model_weights.pth')
+            # 反向传播和优化
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-model.load_state_dict(torch.load('./Titanic_data/model_weights.pth'))
+    torch.save(model.state_dict(), './Titanic_data/model_weights.pth')
+    model.load_state_dict(torch.load('./Titanic_data/model_weights.pth'))
 
-# Evaluation mode
-model.eval()
-df = pd.read_excel('./Titanic_data/test_filled.xlsx')
-passenger_ids = df['PassengerId']
-all_predictions = []  # For save prediction results
-all_passenger_ids = []  # For save PassengerId
-index = 0
+    # Evaluation mode
+    model.eval()
+    df = pd.read_excel('./Titanic_data/test_filled.xlsx')
+    passenger_ids = df['PassengerId']
+    all_predictions = []
+    all_passenger_ids = []
+    index = 0
 
-with torch.no_grad():
-    for inputs in test_loader:
-        # The data in a dataloader is usually a tuple (feature, label), but if no label is defined, the input type is list [tensor]
-        outputs = model(inputs[0])
-        predictions = (
-                    outputs.squeeze() > 0.5).int()  # Binary prediction, assuming that the output is greater than 0.5, it is considered positive; otherwise, it is considered negative
+    with torch.no_grad():
+        for inputs in test_loader:
 
-        all_predictions.extend(predictions.tolist())
+            outputs = model(inputs[0])
+            predictions = (outputs.squeeze() > 0.5).int()
 
-        # take current batch's IDs from passenger_ids list
-        batch_size = inputs[0].size(0)
-        batch_passenger_ids = passenger_ids[index:index + batch_size]  # 提取当前批次的PassengerId
-        all_passenger_ids.extend(batch_passenger_ids)
+            all_predictions.extend(predictions.tolist())
 
-        index += batch_size
+            batch_size = inputs[0].size(0)
+            batch_passenger_ids = passenger_ids[index:index + batch_size]
+            all_passenger_ids.extend(batch_passenger_ids)
 
-    assert index == len(passenger_ids), "Not all PassengerIds were processed"
+            index += batch_size
 
-df = pd.DataFrame({'PassengerId': all_passenger_ids, 'Survived': all_predictions})
-df.to_csv('./Titanic_data/test_prediction.csv', index=False)
+        assert index == len(passenger_ids), "Not all PassengerIds were processed"
+
+    df = pd.DataFrame({'PassengerId': all_passenger_ids, 'Survived': all_predictions})
+    df.to_csv('./Titanic_data/test_prediction.csv', index=False)
+
+    return 0
+
+if __name__ == '__main__':
+    main()

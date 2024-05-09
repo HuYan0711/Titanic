@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import tensorflow as tf
 import matplotlib.pyplot as plt
 import torch
 from sklearn.preprocessing import StandardScaler
@@ -51,15 +50,10 @@ test_features = features2tensor('./Titanic_data/test_filled.xlsx',
 
 X_train, X_val, y_train, y_val = train_test_split(train_features, train_labels, test_size=0.2, random_state=42)
 
-# Create tensor dataset
-# TensorDataset allows you to unify several arreies as features and labels,forming a dataset.
 train_dataset = TensorDataset(X_train, y_train)
 val_dataset = TensorDataset(X_val, y_val)
-# Under a situation that test dataset without labels,TensorDataset is still available to pack datas.
 test_dataset = TensorDataset(test_features)
 
-# While shuffle=False,datas will be take as the original order,otherwise,datas will be shuffled randomly.
-# DataLoader is a 2 dimension vector,like:[batch_size,num_features]
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=False)
 val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
 test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
