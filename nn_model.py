@@ -3,7 +3,8 @@ import torch.nn as nn
 import torch.optim as optim
 import pandas as pd
 from torch.utils.data import TensorDataset, DataLoader
-from data_preprocess import train_loader, val_loader, test_loader
+from sklearn.model_selection import train_test_split
+from data_analyze import cabin_to_letter, fillna_by_median, feature_encoding, features2tensor
 
 class BinaryClassifier(nn.Module):
     def __init__(self):
@@ -21,6 +22,39 @@ class BinaryClassifier(nn.Module):
         return out.squeeze()
 
 def main():
+
+    
+    fillna_by_median('./Titanic_data/train.csv', './Titanic_data/train_filled.xlsx', 'Age')
+    fillna_by_median('./Titanic_data/test.csv', './Titanic_data/test_filled.xlsx', 'Age')
+
+    cabin_to_letter('./Titanic_data/train_filled.xlsx')
+    cabin_to_letter('./Titanic_data/test_filled.xlsx')
+
+    feature_encoding('./Titanic_data/train_filled.xlsx', ['Sex', 'Embarked', 'Cabin_Letter'])
+    feature_encoding('./Titanic_data/test_filled.xlsx', ['Sex', 'Embarked', 'Cabin_Letter'])
+
+    df = pd.read_excel('./Titanic_data/train_filled.xlsx')
+
+    numpy_labels = df['Survived'].to_numpy()  # 使用to_numpy()明确转换为numpy数组
+    # 将numpy数组转换为PyTorch tensor
+    train_labels = torch.tensor(numpy_labels, dtype=torch.float32)
+
+    lt_fields =  ['Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked', 'Cabin_Letter']
+
+    train_features = features2tensor('./Titanic_data/train_filled.xlsx',lt_fields)
+    test_features = features2tensor('./Titanic_data/test_filled.xlsx',lt_fields)
+
+    X_train, X_val, y_train, y_val = train_test_split(train_features, train_labels, test_size=0.2, random_state=42)
+
+    train_dataset = TensorDataset(X_train, y_train)
+    val_dataset = TensorDataset(X_val, y_val)
+    test_dataset = TensorDataset(test_features)
+
+    batch_size = 32
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     model = BinaryClassifier()
     criterion = nn.BCELoss()

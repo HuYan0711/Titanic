@@ -1,55 +1,15 @@
+import torch
 import pandas as pd
-import matplotlib.pyplot as plt
 from pandasql import sqldf
-
-plt.rcParams['font.sans-serif'] = ['SimHei']  # Set font
-plt.rcParams['axes.unicode_minus'] = False  # Solve problem that '-' showed as squre
-
-'''
-1.This file is used to analyze data and show the date by figures.
-2.Process features which are containing null values or not "int" type 
-'''
-
-def plot_bar(data, fig_name):
-
-    fig = plt.figure()
-    df = pd.DataFrame(data).transpose()
-    df.plot(kind='bar', stacked=True)
-    plt.show()
-    plt.savefig(fig_name, dpi=300)
-
-    return 0
-
-
-def cabin_survive_statistics():
-    query = """
-        SELECT Cabin, Survived
-        FROM data_train
-        WHERE Cabin IS NOT NULL
-    """
-    cols = sqldf(query, locals())
-    cabin = {}
-    cabin_survive = {}
-    for index, row in cols.iterrows():
-        if cabin_value is not None and str(cabin_value):
-            letter = str(cabin_value)[0]
-            if letter not in cabin:
-                cabin[letter] = 1
-            else:
-                cabin[letter] = cabin[letter] + 1
-
-            if letter not in cabin_survive and row['Survived'] == 1:
-                cabin_survive[letter] = 1
-            elif letter in cabin_survive and row['Survived'] == 1:
-                cabin_survive[letter] += 1
-    return cabin, cabin_survive
-
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 
 def fillna_by_median(csv_path, xlsx_path, column_name: str):
     df = pd.read_csv(csv_path)
     median_number = df[column_name].median()
     df[column_name] = df[column_name].fillna(median_number)
     df.to_excel(xlsx_path, index=False)
+    
 
 
 def extract_cabin_first_letter(cabin_value):
@@ -71,3 +31,12 @@ def feature_encoding(xlsx_path, columns: list):
         feature_map = {unique_value: idx for idx, unique_value in enumerate(df[column].unique())}
         df[column] = df[column].map(feature_map)
     df.to_excel(xlsx_path, index=False, engine='openpyxl')
+
+def features2tensor(file_path: str, column_list: list):
+    df = pd.read_excel(file_path)
+    features = df[column_list]
+    features_array = features.values
+    scaler = StandardScaler()
+    scaled = scaler.fit_transform(features_array)
+    features_tensor = torch.tensor(scaled, dtype=torch.float32)
+    return features_tensor
