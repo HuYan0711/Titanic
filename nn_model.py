@@ -26,6 +26,12 @@ class BinaryClassifier(nn.Module):
 
 
 def main():
+
+    sv_path = './Titanic_data/test_prediction.csv'
+    use_features = ['Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked', 'Cabin_Letter']
+    batch_size = 32
+
+
     train_df = fillna_by_median('./Titanic_data/train.csv', 'Age')
     test_df = fillna_by_median('./Titanic_data/test.csv', 'Age')
 
@@ -36,10 +42,8 @@ def main():
     train_df = feature_encoding(train_df, encoding_features)
     test_df = feature_encoding(test_df, encoding_features)
 
-    numpy_labels = train_df['Survived'].to_numpy()
-    train_labels = torch.tensor(numpy_labels, dtype=torch.float32)
+    train_labels = torch.tensor(train_df['Survived'].to_numpy(), dtype=torch.float32)
 
-    use_features = ['Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked', 'Cabin_Letter']
     train_features = features2tensor(train_df, use_features)
     test_features = features2tensor(test_df, use_features)
 
@@ -49,7 +53,6 @@ def main():
     val_dataset = TensorDataset(X_val, y_val)
     test_dataset = TensorDataset(test_features)
 
-    batch_size = 32
     train_loader = DataLoader(train_dataset, batch_size, shuffle=False)
     val_loader = DataLoader(val_dataset, batch_size, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size, shuffle=False)
@@ -90,7 +93,7 @@ def main():
         assert index == len(passenger_ids), "Not all PassengerIds were processed"
 
     df = pd.DataFrame({'PassengerId': all_passenger_ids, 'Survived': all_predictions})
-    df.to_csv('./Titanic_data/test_prediction.csv', index=False)
+    df.to_csv(sv_path, index=False)
 
 
 if __name__ == '__main__':
