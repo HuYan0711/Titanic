@@ -26,30 +26,40 @@ class BinaryClassifier(nn.Module):
 
 
 def main():
-    train_df = fillna_by_median('./Titanic_data/train.csv', 'Age')
-    test_df = fillna_by_median('./Titanic_data/test.csv', 'Age')
+
+    train_path='./Titanic_data/train.csv'
+    test_path='./Titanic_data/test.csv'
+    weight_path='./Titanic_data/model_weights.pth'
+    results_save_path='./Titanic_data/test_prediction.csv'
+
+    encoding_features = ['Sex', 'Embarked', 'Cabin_Letter']
+    use_features = ['Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked', 'Cabin_Letter']
+
+    split_ratio=0.2
+    batch_size = 32
+
+    train_df = fillna_by_median(train_path, 'Age')
+    test_df = fillna_by_median(test_path, 'Age')
 
     train_df = cabin_to_letter(train_df)
     test_df = cabin_to_letter(test_df)
 
-    encoding_features = ['Sex', 'Embarked', 'Cabin_Letter']
+
     train_df = feature_encoding(train_df, encoding_features)
     test_df = feature_encoding(test_df, encoding_features)
 
-    numpy_labels = train_df['Survived'].to_numpy()
-    train_labels = torch.tensor(numpy_labels, dtype=torch.float32)
+    train_labels = torch.tensor(train_df['Survived'].to_numpy(), dtype=torch.float32)
 
-    use_features = ['Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked', 'Cabin_Letter']
     train_features = features2tensor(train_df, use_features)
     test_features = features2tensor(test_df, use_features)
 
-    X_train, X_val, y_train, y_val = train_test_split(train_features, train_labels, test_size=0.2, random_state=42)
+    X_train, X_val, y_train, y_val = train_test_split(train_features, train_labels, test_size=split_ratio, random_state=42)
 
     train_dataset = TensorDataset(X_train, y_train)
     val_dataset = TensorDataset(X_val, y_val)
     test_dataset = TensorDataset(test_features)
 
-    batch_size = 32
+
     train_loader = DataLoader(train_dataset, batch_size, shuffle=False)
     val_loader = DataLoader(val_dataset, batch_size, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size, shuffle=False)
@@ -66,9 +76,9 @@ def main():
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-    torch.save(model.state_dict(), './Titanic_data/model_weights.pth')
+    torch.save(model.state_dict(),weight_path )
 
-    model.load_state_dict(torch.load('./Titanic_data/model_weights.pth'))
+    model.load_state_dict(torch.load(weight_path))
 
     # Evaluation mode
     model.eval()
@@ -90,7 +100,7 @@ def main():
         assert index == len(passenger_ids), "Not all PassengerIds were processed"
 
     df = pd.DataFrame({'PassengerId': all_passenger_ids, 'Survived': all_predictions})
-    df.to_csv('./Titanic_data/test_prediction.csv', index=False)
+    df.to_csv(results_save_path, index=False)
 
 
 if __name__ == '__main__':
