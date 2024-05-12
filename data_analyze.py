@@ -38,3 +38,10 @@ def features2tensor(df, column_list: list):
     scaled = scaler.fit_transform(features_array)
     features_tensor = torch.tensor(scaled, dtype=torch.float32)
     return features_tensor
+
+
+def process_features(path, encoding_features, column_name):
+    fillna_df = fillna_by_median(path, column_name)
+    cabin_df = cabin_to_letter(fillna_df)
+    df = feature_encoding(cabin_df, encoding_features)
+    return df
