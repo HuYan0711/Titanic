@@ -1,17 +1,27 @@
+import logging
+
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import pandas as pd
+
 from torch.utils.data import TensorDataset, DataLoader
-from data_preprocess import train_loader, val_loader, test_loader
+from sklearn.model_selection import train_test_split
+
+from data_analyze import features2tensor, process_features
+
+logging.basicConfig(filename='./Titanic_data/training.log', level=logging.INFO,
+                    format='%(asctime)s:%(levelname)s:%(message)s',
+                    datefmt='%Y-%m-%d %H:%M')
+
 
 class BinaryClassifier(nn.Module):
     def __init__(self):
         super(BinaryClassifier, self).__init__()
-        self.fc1 = nn.Linear(8, 20)  # 8 features，20 nodes hidden layers
-        self.relu = nn.ReLU()  # 激活函数
-        self.fc2 = nn.Linear(20, 1)  # 1 output node layer for binary classify
-        self.sigmoid = nn.Sigmoid()  # 对于二分类问题，输出层通常使用Sigmoid激活函数
+        self.fc1 = nn.Linear(8, 20)
+        self.relu = nn.ReLU()
+        self.fc2 = nn.Linear(20, 1)
+        self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
         out = self.fc1(x)
@@ -21,51 +31,120 @@ class BinaryClassifier(nn.Module):
         return out.squeeze()
 
 
-# initialize model and optimizer
-model = BinaryClassifier()
-criterion = nn.BCELoss()  # 二分类交叉熵损失函数
-optimizer = optim.Adam(model.parameters(), lr=0.001)  # Adam优化器
+def train(model,
+          train_loader,
+          val_loader,
+          weight_path,
+          max_epoch,
+          lr,
+          threshold=0.5):
+    # Train model
+    criterion = nn.BCELoss()
+    optimizer = optim.Adam(model.parameters(), lr)
 
-# Train model
+    best_acc = 0.0
+    for epoch in range(max_epoch):
+        model.train()
+        running_loss = 0.0
+        for inputs, labels in train_loader:
+            outputs = model(inputs)
+            loss = criterion(outputs, labels.float())
+            running_loss += loss.item()
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+        avg_epoch_loss = running_loss / len(train_loader)
+        model.eval()
+        correct = 0
+        total = 0
+        with torch.no_grad():
+            for val_inputs, val_labels in val_loader:
+                val_outputs = model(val_inputs)
+                predicted = (val_outputs >= threshold).float()
+                correct += (predicted == val_labels.float()).sum().item()
+                total += val_labels.size(0)
+        accuracy = 100 * correct / total
+        logging.info(f'Epoch {epoch + 1}, Loss: {avg_epoch_loss:.4f}, Accuracy: {accuracy:.2f}%')
+        if accuracy > best_acc:
+            best_acc = accuracy
+            torch.save(model.state_dict(), weight_path)
 
-for epoch in range(100):
-    for inputs, labels in train_loader:
-        outputs = model(inputs)
-        loss = criterion(outputs, labels.float())  # labels需要是float类型以匹配BCELoss的期望输入
 
-        # 反向传播和优化
-        optimizer.zero_grad()  # 清空之前的梯度
-        loss.backward()  # 反向传播计算梯度
-        optimizer.step()  # 使用优化器更新权重
-torch.save(model.state_dict(), './Titanic_data/model_weights.pth')
+def predict(model, weight_path, test_df, test_loader):
+    model.load_state_dict(torch.load(weight_path))
+    # Evaluation mode
+    model.eval()
+    passenger_ids = test_df['PassengerId']
+    all_predictions = []
+    all_passenger_ids = []
+    index = 0
 
-model.load_state_dict(torch.load('./Titanic_data/model_weights.pth'))
+    with torch.no_grad():
+        for inputs in test_loader:
+            outputs = model(inputs[0])
+            predictions = (outputs.squeeze() > 0.5).int()
+            all_predictions.extend(predictions.tolist())
+            batch_size = inputs[0].size(0)
+            batch_passenger_ids = passenger_ids[index:index + batch_size]
+            all_passenger_ids.extend(batch_passenger_ids)
+            index += batch_size
 
-# Evaluation mode
-model.eval()
+        assert index == len(passenger_ids), "Not all PassengerIds were processed"
 
-passenger_ids = data_test_xlsx['PassengerId']
-all_predictions = []  # For save prediction results
-all_passenger_ids = []  # For save PassengerId
-index = 0
+    df = pd.DataFrame({'PassengerId': all_passenger_ids, 'Survived': all_predictions})
+    return df
 
-with torch.no_grad():
-    for inputs in test_loader:
-        # The data in a dataloader is usually a tuple (feature, label), but if no label is defined, the input type is list [tensor]
-        outputs = model(inputs[0])
-        predictions = (
-                    outputs.squeeze() > 0.5).int()  # Binary prediction, assuming that the output is greater than 0.5, it is considered positive; otherwise, it is considered negative
 
-        all_predictions.extend(predictions.tolist())
+def main():
+    train_path = './Titanic_data/train.csv'
+    test_path = './Titanic_data/test.csv'
 
-        # take current batch's IDs from passenger_ids list
-        batch_size = inputs[0].size(0)
-        batch_passenger_ids = passenger_ids[index:index + batch_size]  # 提取当前批次的PassengerId
-        all_passenger_ids.extend(batch_passenger_ids)
+    weight_path = './Titanic_data/model_weights.pth'
+    results_save_path = './Titanic_data/test_prediction.csv'
 
-        index += batch_size
+    encoding_features = ['Sex', 'Embarked', 'Cabin_Letter']
+    use_features = ['Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked', 'Cabin_Letter']
 
-    assert index == len(passenger_ids), "Not all PassengerIds were processed"
+    split_ratio = 0.2
+    lr = 0.001
+    batch_size = 32
+    max_epoch = 100
 
-df = pd.DataFrame({'PassengerId': all_passenger_ids, 'Survived': all_predictions})
-df.to_csv('./Titanic_data/test_prediction.csv', index=False)
+    train_df = process_features(train_path, encoding_features, column_name='Age')
+    test_df = process_features(test_path, encoding_features, column_name='Age')
+
+    train_labels = torch.tensor(train_df['Survived'].to_numpy(), dtype=torch.float32)
+
+    train_features = features2tensor(train_df, use_features)
+    test_features = features2tensor(test_df, use_features)
+
+    X_train, X_val, y_train, y_val = train_test_split(train_features, train_labels, test_size=split_ratio,
+                                                      random_state=42)
+
+    train_dataset = TensorDataset(X_train, y_train)
+    val_dataset = TensorDataset(X_val, y_val)
+    test_dataset = TensorDataset(test_features)
+
+    train_loader = DataLoader(train_dataset, batch_size, shuffle=False)
+    val_loader = DataLoader(val_dataset, batch_size, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size, shuffle=False)
+
+    model = BinaryClassifier()
+
+    train(model=model,
+          train_loader=train_loader,
+          val_loader=val_loader,
+          weight_path=weight_path,
+          max_epoch=max_epoch,
+          lr=lr,
+          threshold=0.5)
+
+    pred_df = predict(model=model,
+                      weight_path=weight_path,
+                      test_df=test_df,
+                      test_loader=test_loader)
+    pred_df.to_csv(results_save_path, index=False)
+
+
+if __name__ == '__main__':
+    main()
